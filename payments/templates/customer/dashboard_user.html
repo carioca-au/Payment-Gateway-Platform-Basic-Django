@@ -1,0 +1,31 @@
+{%  extends 'main.html' %}
+
+{% block content %}
+
+	{%  include 'status.html' %}
+
+	<div class="row">
+		<div class="col-md">
+			<div class="card card-body">
+				<table class="table table-sm">
+					<tr>
+						<th>Status</th>
+						<th>Company</th>
+						<th>Transaction</th>
+						<th>Created</th>
+					</tr>
+					{% for payment in payment_list %}
+					<tr>
+						<td>{{ payment.get_status_display }}</td>
+						<td>{{ payment.company.name }}</td>
+						<td>{{ payment.date_transaction }}</td>
+						<td>{{ payment.date_created }}</td>
+					</tr>
+					{% endfor %}
+				</table>
+			</div>
+		</div>
+	</div>
+
+{% endblock content %}
+
