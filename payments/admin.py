@@ -15,6 +15,7 @@ def custom_titled_filter(title):
 
     return Wrapper
 
+
 admin.site.register(Company, UserAdmin)
 admin.site.register(Bank)
 admin.site.register(Account)
