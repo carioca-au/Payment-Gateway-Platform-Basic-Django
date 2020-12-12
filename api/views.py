@@ -6,6 +6,8 @@ from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAuthenticated
 
 from api.serializers import PaymentSerializer
+from api.utils.cache import two_min_cache, get_cached_value, delete_cached_value
+
 from payments.models import *
 
 
@@ -13,12 +15,14 @@ from payments.models import *
 @authentication_classes([SessionAuthentication, BasicAuthentication])
 @permission_classes([IsAuthenticated])
 def payment_list(request, company_id):
+    cache_key = 'payment_list'
     if request.method == 'GET':
-        payments = Payment.objects.filter(company__id=company_id).all()
-
-        title = request.query_params.get('title', None)
-        if title is not None:
-            payments = payments.filter(title__icontains=title)
+        payments = get_cached_value(cache_key)
+        if not payments:
+            payments = two_min_cache(
+                cache_key,
+                Payment.objects.filter(company__id=company_id).all()
+            )
 
         serializer = PaymentSerializer(payments, many=True)
         return JsonResponse(serializer.data, safe=False)
@@ -28,11 +32,13 @@ def payment_list(request, company_id):
         serializer = PaymentSerializer(data=payment_data)
         if serializer.is_valid():
             serializer.save()
+            two_min_cache(cache_key, serializer.data)
             return JsonResponse(serializer.data, status=status.HTTP_201_CREATED)
         return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
         count = Payment.objects.all().delete()
+        delete_cached_value(cache_key)
         return JsonResponse(
             {
                 'message': '{count} Tutorials were deleted successfully!'.format(count=count[0])
@@ -43,8 +49,15 @@ def payment_list(request, company_id):
 
 @api_view(['GET', 'PUT', 'DELETE'])
 def payment_detail(request, company_id, payment_id):
+    cache_key = 'payment_detail'
     try:
-        payment = Payment.objects.get(company__pk=company_id, pk=payment_id)
+        payment = get_cached_value(cache_key)
+        if not payment:
+            payment = two_min_cache(
+                cache_key,
+                Payment.objects.get(company__pk=company_id, pk=payment_id)
+            )
+
     except Payment.DoesNotExist:
         return JsonResponse(
             {'message': 'The Payment ({payment_id}) does not exist'.format(payment_id=payment_id)},
@@ -62,12 +75,14 @@ def payment_detail(request, company_id, payment_id):
         serializer = PaymentSerializer(payment, data=payment_data)
         if serializer.is_valid():
             serializer.save()
+            two_min_cache(cache_key, serializer.data)
             return JsonResponse(serializer.data)
         return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # Delete Payment
     elif request.method == 'DELETE':
         payment.delete()
+        delete_cached_value(cache_key)
         return JsonResponse(
             {
                 'message': 'Payment ({payment_id}) was deleted successfully!'.format(payment_id=payment_id)
